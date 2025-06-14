@@ -52,6 +52,7 @@ os.environ["TORCHINDUCTOR_CACHE_DIR"] = os.path.join(CURRENT_DIR, "tmp")
 
 console = Console()
 logging.getLogger("numba").setLevel(logging.WARNING)  # quiet down numba logs
+import types
 
 
 def rename_args(args, prefix):
@@ -280,6 +281,43 @@ def build_pipeline(
     stt = get_stt_handler(module_kwargs, stop_event, spoken_prompt_queue, text_prompt_queue, whisper_stt_handler_kwargs, faster_whisper_stt_handler_kwargs, paraformer_stt_handler_kwargs)
     lm = get_llm_handler(module_kwargs, stop_event, text_prompt_queue, lm_response_queue, language_model_handler_kwargs, open_api_language_model_handler_kwargs, mlx_language_model_handler_kwargs)
     tts = get_tts_handler(module_kwargs, stop_event, lm_response_queue, send_audio_chunks_queue, should_listen, parler_tts_handler_kwargs, melo_tts_handler_kwargs, chat_tts_handler_kwargs, facebook_mms_tts_handler_kwargs)
+
+    import functools
+    import re
+    import os
+
+    from commands import LaCrocCommands
+    import socket
+
+    def comm(host, port=33333):
+        client_socket = socket.socket()  # instantiate
+        client_socket.connect((host, port))  # connect to the server
+        print(f"Connected! Host: {host} Port: {port}")
+        def send_command(message: str):
+            client_socket.send(message.encode())  # send message
+        return send_command
+
+
+    def find_commands(inp: str) -> list[LaCrocCommands]:
+        res = []
+        for command in LaCrocCommands:
+            res.append(re.findall(command, inp))
+        return res
+
+    def wrapped_process(fn):
+        send_command = comm(os.environ["LECROC_SERVER"])
+
+        @functools.wraps(fn)
+        def wrapper(self, *args, **kwargs):
+            prompt = args[0]
+            if isinstance(prompt, tuple):
+                prompt = prompt[1]
+                send_command(LaCrocCommands.talk)
+            return fn(*args, **kwargs)
+        return wrapper
+
+    tts.process = types.MethodType(wrapped_process(tts.process), tts)
+
 
     return ThreadManager([*comms_handlers, vad, stt, lm, tts])
 

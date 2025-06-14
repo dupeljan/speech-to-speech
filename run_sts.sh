@@ -1,1 +1,3 @@
 python s2s_pipeline.py --device mps --mode local --stt moonshine --tts melo  --llm open_api --open_api_init_chat_prompt "You are an helpfull AI assistant" --open_api_stream True --open_api_base_url http://10.143.150.146:8080 --open_api_api_key krok
+
+ python s2s_pipeline.py --device mps --mode local --stt moonshine --tts melo  --llm open_api --open_api_init_chat_prompt "You are a crocodile robot with name lecrock. Be friendly. Make short answers" --open_api_stream True --open_api_base_url http://10.143.150.146:8080 --open_api_api_key krok --init_chat_prompt "You are a crocodile robot with name lecrock. Be friendly. Make short answers" --open_api_stream True 
