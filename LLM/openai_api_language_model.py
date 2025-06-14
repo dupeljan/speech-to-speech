@@ -32,7 +32,7 @@ class OpenApiModelHandler(BaseHandler):
         gen_kwargs={},
         base_url =None,
         api_key=None,
-        stream=False,
+        stream=True,
         user_role="user",
         chat_size=1,
         init_chat_role="system",
@@ -49,15 +49,21 @@ class OpenApiModelHandler(BaseHandler):
             self.chat.init_chat({"role": init_chat_role, "content": init_chat_prompt})
         self.user_role = user_role
         self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self._counter = 0
         self.warmup()
+
 
     def warmup(self):
         logger.info(f"Warming up {self.__class__.__name__}")
         start = time.time()
+        warmup_message = self.chat.init_chat_message
+        if not warmup_message:
+            {"role": "system", "content": "You are a helpful assistant"},
+
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant"},
+                warmup_message,
                 {"role": "user", "content": "Hello"},
             ],
             stream=self.stream
@@ -66,6 +72,8 @@ class OpenApiModelHandler(BaseHandler):
         logger.info(
             f"{self.__class__.__name__}:  warmed up! time: {(end - start):.3f} s"
         )
+
+
     def process(self, prompt):
             logger.debug("call api language model...")
             self.chat.append({"role": self.user_role, "content": prompt})
@@ -77,9 +85,16 @@ class OpenApiModelHandler(BaseHandler):
                     language_code = language_code[:-5]
                     prompt = f"Please reply to my message in {WHISPER_LANGUAGE_TO_LLM_LANGUAGE[language_code]}. " + prompt
             
+            messages=[
+                {"role": self.user_role, "content": prompt},
+            ],
+            if not self._counter:
+                messages = [self.chat.init_chat_message, messages[0]]
+            self._counter += 1
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
+                    self.chat.init_chat_message,
                     {"role": self.user_role, "content": prompt},
                 ],
                 stream=self.stream
