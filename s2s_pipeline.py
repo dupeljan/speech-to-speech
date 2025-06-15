@@ -305,15 +305,16 @@ def build_pipeline(
         return res
 
     def wrapped_process(fn):
-        send_command = comm(os.environ["LECROC_SERVER"])
+        #send_command = comm(os.environ["LECROC_SERVER"])
 
         @functools.wraps(fn)
         def wrapper(self, *args, **kwargs):
             prompt = args[0]
             if isinstance(prompt, tuple):
-                prompt = prompt[1]
-                send_command(LaCrocCommands.talk)
-            return fn(*args, **kwargs)
+                prompt = prompt[0]
+                #send_command(f"{LaCrocCommands.talk} {len(prompt)}")
+            retval = fn(*args, **kwargs)
+            return retval
         return wrapper
 
     tts.process = types.MethodType(wrapped_process(tts.process), tts)

@@ -28,6 +28,9 @@ WHISPER_LANGUAGE_TO_MELO_SPEAKER = {
     "ko": "KR",
 }
 
+from client_lecroc import comm
+from client_lecroc import find_command
+from commands import LaCrocCommands
 
 class MeloTTSHandler(BaseHandler):
     def setup(
@@ -50,16 +53,22 @@ class MeloTTSHandler(BaseHandler):
         ]
         self.blocksize = blocksize
         self.warmup()
+        self._comm = comm()
 
     def warmup(self):
         logger.info(f"Warming up {self.__class__.__name__}")
         _ = self.model.tts_to_file("text", self.speaker_id, quiet=True)
 
     def process(self, llm_sentence):
+
         language_code = None
 
         if isinstance(llm_sentence, tuple):
             llm_sentence, language_code = llm_sentence
+
+        command = find_command(llm_sentence)
+        if command is not None:
+            self._comm(command.value)
 
         console.print(f"[green]ASSISTANT: {llm_sentence}")
 
@@ -100,6 +109,9 @@ class MeloTTSHandler(BaseHandler):
             return
         audio_chunk = librosa.resample(audio_chunk, orig_sr=44100, target_sr=16000)
         audio_chunk = (audio_chunk * 32768).astype(np.int16)
+        #41482 aprox 3 sec
+        c = 0.00007232401
+        self._comm(f"{LaCrocCommands.talk.value} {(len(audio_chunk) * c):.3f}")
         for i in range(0, len(audio_chunk), self.blocksize):
             yield np.pad(
                 audio_chunk[i : i + self.blocksize],
